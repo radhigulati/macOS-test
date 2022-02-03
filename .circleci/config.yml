@@ -1,8 +1,87 @@
-version: 2.1
-
-jobs: # a basic unit of work in a run
-  test: # your job name
+version: 2
+jobs:
+  build:
+    circleci_ip_ranges: true
     macos:
-      xcode: 12.5.1 # indicate your selected version of Xcode
-    steps: # a series of commands to run
-      - checkout  # pull down code from your version control system.
+      xcode: 12.5.1
+    steps:
+      - checkout
+      - run: curl -s http://whatismyip.akamai.com
+      - run: mkdir -p my_workspace
+      - run: echo "Ipsum is simply dummy text of the printing and typesetting industry.Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book." > my_workspace/echo-output
+      - persist_to_workspace:
+          # Must be an absolute path, or relative path from working_directory
+          root: my_workspace
+          # Must be relative path from root
+          paths:
+            - echo-output      
+  testa:
+    circleci_ip_ranges: true
+    docker:
+      - image: circleci/ruby:2.4.1
+    steps:
+      - run: curl -s http://whatismyip.akamai.com
+      - attach_workspace:
+          # Must be absolute path or relative path from working_directory
+          at: my_workspace
+
+      - run: cat my_workspace/echo-output
+          
+  testb:
+    circleci_ip_ranges: true
+    docker:
+      - image: circleci/ruby:2.4.1
+    steps:
+      - run: curl -s http://whatismyip.akamai.com
+      - attach_workspace:
+          # Must be absolute path or relative path from working_directory
+          at: my_workspace
+
+      - run: |
+          if [[ $(cat my_workspace/echo-output) == "Lorem Ipsum is simply dummy text of the printing and typesetting industry.Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book." ]]; then
+            echo "It worked!";
+          else
+            echo "Stop"; exit 1
+          fi   
+          
+  deploy:
+    circleci_ip_ranges: true
+    docker:
+      - image: circleci/ruby:2.4.1
+    steps:
+      - run: curl -s http://whatismyip.akamai.com
+      - attach_workspace:
+          # Must be absolute path or relative path from working_directory
+          at: my_workspace
+
+      - run: |
+          echo "Deploy!"
+          cat my_workspace/echo-output
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build
+      - testa:
+          requires:
+            - build 
+      - testb:
+          requires:
+            - build 
+      - deploy:
+          requires:
+            - testa
+            - testb
+  workflow_pttwo:
+    jobs:
+      - build
+      - testa:
+          requires:
+            - build 
+      - testb:
+          requires:
+            - build 
+      - deploy:
+          requires:
+            - testa
+            - testb
